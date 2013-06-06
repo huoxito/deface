@@ -7,7 +7,7 @@
 Deface
 ======
 
-Deface is a library that allows you to customize HTML (ERB and HAML) views in a Rails application without editing the underlying view.
+Deface is a library that allows you to customize HTML (ERB, Haml and Slim) views in a Rails application without editing the underlying view.
 
 It allows you to easily target html & erb elements as the hooks for customization using CSS selectors as supported by Nokogiri.
 
@@ -59,7 +59,7 @@ You should save your overrides in the ````app/overrides````, normally one overri
 
 * <tt>:insert_bottom</tt> - Inserts inside all elements that match the supplied selector, as the last child.
 
-* <tt>:set_</tt> - Sets attributes on all elements that match the supplied selector, replacing existing attribute value if present or adding if not. Expects :attributes option to be passed.
+* <tt>:set_attributes</tt> - Sets attributes on all elements that match the supplied selector, replacing existing attribute value if present or adding if not. Expects :attributes option to be passed.
 
 * <tt>:add_to_attributes</tt> - Appends value to attributes on all elements that match the supplied selector, adds attribute if not present. Expects :attributes option to be passed.
 
@@ -185,9 +185,9 @@ You can redefine an existing override by simply declaring a new override with th
 You do not need to resupply all the values originally used, just the ones you want to change:
 
 ```ruby
-    Deface::Override.new(:virtual_path => 'posts/index',
-                        :name => 'add_attrs_to_a_link',
-                        :disabled => true)
+Deface::Override.new(:virtual_path => 'posts/index',
+                     :name => 'add_attrs_to_a_link',
+                     :disabled => true)
 ```
 
 ### Namespacing
@@ -196,9 +196,9 @@ If you want to avoid inadvertently redefining overrides in other engines, you ca
 an override automatically be namespaced to the engine in which it was defined:
 
 ```ruby
-    Deface::Override.new(:virtual_path => 'posts/index',
-                        :name => 'add_link',
-                        :namespaced => true)
+Deface::Override.new(:virtual_path => 'posts/index',
+                     :name => 'add_link',
+                     :namespaced => true)
 ```
 
 So for example if the above override was defined in `MyEngine` it would be automatically named `my_engine_add_link`.
@@ -327,7 +327,9 @@ Deface now supports precompiling where all overrides are loaded and applied to t
 
 It's important to disable Deface once precompiling is used to prevent overrides getting applied twice. To disable add the following line to your application's `production.rb` file:
 
-     config.deface.enabled = false
+```ruby
+config.deface.enabled = false
+```
 
 NOTE: You can also use precompiling in development mode.
 

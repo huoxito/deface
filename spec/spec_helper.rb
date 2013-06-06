@@ -7,7 +7,18 @@ require 'deface'
 require 'rails/generators'
 #have to manually require following for testing purposes
 require 'deface/action_view_extensions'
+
+#adding fake class as it's needed by haml 4.0, don't
+#want to have to require the entire rails stack in specs.
+module Rails
+  class Railtie
+    def self.initializer(*args)
+    end
+  end
+end
+
 require 'haml'
+require 'slim'
 require 'deface/haml_converter'
 require 'generators/deface/override_generator'
 require 'time'
@@ -46,6 +57,8 @@ shared_context "mock Rails" do
       Rails.application.config.stub :watchable_dirs => {}
     end
 
+    Rails.stub :root => Pathname.new('spec/dummy')
+
     Rails.stub :logger => mock('logger')
     Rails.logger.stub(:error)
     Rails.logger.stub(:warning)
@@ -56,6 +69,7 @@ shared_context "mock Rails" do
     Time.zone.stub(:now).and_return Time.parse('1979-05-25')
 
     require "haml/template/plugin"
+    require 'slim/erb_converter'
   end
 end
 
@@ -65,6 +79,7 @@ shared_context "mock Rails.application" do
   before(:each) do
     Rails.application.config.stub :deface => Deface::Environment.new
     Rails.application.config.deface.haml_support = true
+    Rails.application.config.deface.slim_support = true
   end
 end
 

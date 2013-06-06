@@ -16,9 +16,16 @@ module Deface
       it "should parse html document" do
         parsed = Deface::Parser.convert("<html><head><title>Hello</title></head><body>test</body>")
         parsed.should be_an_instance_of(Nokogiri::HTML::Document)
-        parsed = parsed.to_s.split("\n")[1..-1] #ignore doctype added by noko
+        parsed = parsed.to_s.split("\n")
 
-        if RUBY_VERSION < "1.9"
+        unless RUBY_PLATFORM == 'java'
+          parsed = parsed[1..-1] #ignore doctype added by nokogiri
+        end
+
+        #accounting for qwerks in Nokogir between ruby versions / platforms
+        if RUBY_PLATFORM == 'java'
+          parsed.should == ["<html><head><title>Hello</title></head><body>test</body></html>"]
+        elsif RUBY_VERSION < "1.9"
           parsed.should == "<html>\n<head><title>Hello</title></head>\n<body>test</body>\n</html>".split("\n")
         else
           parsed.should == "<html>\n<head>\n<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n<title>Hello</title>\n</head>\n<body>test</body>\n</html>".split("\n")
@@ -26,8 +33,14 @@ module Deface
 
         parsed = Deface::Parser.convert("<html><title>test</title></html>")
         parsed.should be_an_instance_of(Nokogiri::HTML::Document)
-        parsed = parsed.to_s.split("\n")[1..-1] #ignore doctype added by noko
-        if RUBY_VERSION < "1.9"
+        parsed = parsed.to_s.split("\n")
+
+        unless RUBY_PLATFORM == 'java'
+          parsed = parsed[1..-1] #ignore doctype added by nokogiri
+        end
+
+        #accounting for qwerks in Nokogir between ruby versions / platforms
+        if RUBY_VERSION < "1.9" || RUBY_PLATFORM == 'java'
           parsed.should == ["<html><head><title>test</title></head></html>"]
         else
           parsed.should == "<html><head>\n<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n<title>test</title>\n</head></html>".split("\n")
@@ -35,22 +48,34 @@ module Deface
 
         parsed = Deface::Parser.convert("<html><p>test</p></html>")
         parsed.should be_an_instance_of(Nokogiri::HTML::Document)
-        parsed = parsed.to_s.split("\n")[1..-1] #ignore doctype added by noko
-        parsed.should == "<html><body><p>test</p></body></html>".split("\n") 
+        parsed = parsed.to_s.split("\n")
+
+        if RUBY_PLATFORM == 'java'
+          parsed.should eq ["<html><head></head><body><p>test</p></body></html>"]
+        else
+          parsed = parsed[1..-1]
+          parsed.should eq ["<html><body><p>test</p></body></html>"]
+        end
       end
 
       it "should parse body tag" do
-        parsed = Deface::Parser.convert("<body id=\"body\" <%= something %>>test</body>")
-        parsed.should be_an_instance_of(Nokogiri::XML::Element)
-        parsed.to_s.should == "<body id=\"body\" data-erb-0=\"&lt;%= something %&gt;\">test</body>"
+        tag = Deface::Parser.convert("<body id=\"body\" <%= something %>>test</body>")
+        tag.should be_an_instance_of(Nokogiri::XML::Element)
+        tag.text.should eq 'test'
+        tag.attributes['id'].value.should eq 'body'
+        tag.attributes['data-erb-0'].value.should eq '<%= something %>'
       end
 
       it "should convert <% ... %>" do
-        Deface::Parser.convert("<% method_name %>").to_s.should == "<code erb-silent> method_name </code>"
+        tag = Deface::Parser.convert("<% method_name %>")
+        tag = tag.css('code').first
+        tag.attributes['erb-silent'].value.should eq ''
       end
 
       it "should convert <%= ... %>" do
-        Deface::Parser.convert("<%= method_name %>").to_s.should == "<code erb-loud> method_name </code>"
+        tag = Deface::Parser.convert("<%= method_name %>")
+        tag = tag.css('code').first
+        tag.attributes['erb-loud'].value.should eq ''
       end
 
       it "should convert first <% ... %> inside html tag" do
@@ -65,26 +90,63 @@ module Deface
         Deface::Parser.convert("<p id=\"<% method_name %>\"></p>").to_s.should == "<p data-erb-id=\"&lt;% method_name %&gt;\"></p>"
       end
 
+      if RUBY_PLATFORM == 'java'
+        it "should convert <% ... %> contains double quoted  value" do
+          Deface::Parser.convert("<p <% method_name \"test\" %>></p>").to_s.should == "<p data-erb-0=\"&lt;% method_name %22test%22 %&gt;\"></p>"
+        end
+      end
+
       it "should convert <% ... %> inside single quoted attr value" do
         Deface::Parser.convert("<p id='<% method_name %>'></p>").to_s.should == "<p data-erb-id=\"&lt;% method_name %&gt;\"></p>"
       end
 
       it "should convert <% ... %> inside non-quoted attr value" do
-        Deface::Parser.convert("<p id=<% method_name %>></p>").to_s.should == "<p data-erb-id=\"&lt;% method_name %&gt;\"></p>"
-        Deface::Parser.convert("<p id=<% method_name %> alt=\"test\"></p>").to_s.should == "<p data-erb-id=\"&lt;% method_name %&gt;\" alt=\"test\"></p>"
+        tag = Deface::Parser.convert("<p id=<% method_name %>></p>")
+        tag = tag.css('p').first
+        tag.attributes['data-erb-id'].value.should eq '<% method_name %>'
+
+        tag = Deface::Parser.convert("<p id=<% method_name %> alt=\"test\"></p>")
+        tag = tag.css('p').first
+        tag.attributes['data-erb-id'].value.should eq '<% method_name %>'
+        tag.attributes['alt'].value.should eq 'test'
       end
 
       it "should convert multiple <% ... %> inside html tag" do
-        Deface::Parser.convert(%q{<p <%= method_name %> alt="<% x = 'y' + 
-                               \"2\" %>" title='<% method_name %>' <%= other_method %></p>}).to_s.should == "<p data-erb-0=\"&lt;%= method_name %&gt;\" data-erb-alt=\"&lt;% x = 'y' + \n                               \\&quot;2\\&quot; %&gt;\" data-erb-title=\"&lt;% method_name %&gt;\" data-erb-1=\"&lt;%= other_method %&gt;\"></p>"
+        tag = Deface::Parser.convert(%q{<p <%= method_name %> alt="<% x = 'y' + 
+                               \"2\" %>" title='<% method_name %>' <%= other_method %></p>})
+
+        tag = tag.css('p').first
+        tag.attributes['data-erb-0'].value.should == "<%= method_name %>"
+        tag.attributes['data-erb-1'].value.should == "<%= other_method %>"
+        tag.attributes['data-erb-alt'].value.should == "<% x = 'y' + \n                               \\\"2\\\" %>"
+        tag.attributes['data-erb-title'].value.should == "<% method_name %>"
       end
 
       it "should convert <%= ... %> including href attribute" do
-        Deface::Parser.convert(%(<a href="<%= x 'y' + "z" %>">A Link</a>)).to_s.should == "<a data-erb-href=\"&lt;%= x 'y' + &quot;z&quot; %&gt;\">A Link</a>"
+        tag = Deface::Parser.convert(%(<a href="<%= x 'y' + "z" %>">A Link</a>))
+        tag = tag.css('a').first
+        tag.attributes['data-erb-href'].value.should eq "<%= x 'y' + \"z\" %>"
+        tag.text.should eq 'A Link'
       end
 
       it "should escape contents code tags" do
-        Deface::Parser.convert("<% method_name(:key => 'value') %>").to_s.should == "<code erb-silent> method_name(:key =&gt; 'value') </code>"
+        tag = Deface::Parser.convert("<% method_name :key => 'value' %>")
+        tag = tag.css('code').first
+        tag.attributes.key?('erb-silent').should be_true
+        tag.text.should eq " method_name :key => 'value' "
+      end
+
+      it "should handle round brackets in code tags" do
+        # commented out line below will fail as : adjacent to ( causes Nokogiri parser issue on jruby
+        tag = Deface::Parser.convert("<% method_name(:key => 'value') %>")
+        tag = tag.css('code').first
+        tag.attributes.key?('erb-silent').should be_true
+        tag.text.should eq " method_name(:key => 'value') "
+
+        tag = Deface::Parser.convert("<% method_name( :key => 'value' ) %>")
+        tag = tag.css('code').first
+        tag.attributes.key?('erb-silent').should be_true
+        tag.text.should eq " method_name( :key => 'value' ) "
       end
 
       if "".encoding_aware?
@@ -128,6 +190,12 @@ module Deface
 
       it "should revert data-erb-href attr inside html tag" do
         Deface::Parser.undo_erb_markup!("<a data-erb-href=\"&lt;%= x 'y' + &quot;z&quot; %&gt;\">A Link</a>").should == %(<a href="<%= x 'y' + \"z\" %>">A Link</a>)
+      end
+
+      if RUBY_PLATFORM == 'java'
+        it "should revert data-erb-x containing double quoted value" do
+          Deface::Parser.undo_erb_markup!("<p data-erb-0=\"&lt;% method_name %22test%22 %&gt;\"></p>").should == %(<p <% method_name \"test\" %>></p>)
+        end
       end
 
       it "should unescape contents of code tags" do

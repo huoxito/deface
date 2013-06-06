@@ -17,7 +17,11 @@ module Deface
         end
 
         it "should return converted source for partial containing haml" do
-          load_template_source("shared/hello", true).should =="<div class='<%= @some %>' id='message'><%= 'Hello, World!' %>\n</div>\n"
+          load_template_source("shared/hello", true).should == "<div class='<%= @some %>' id='message'><%= 'Hello, World!' %>\n</div>\n"
+        end
+
+        it "should return converted source for partial containing slim" do
+          load_template_source("shared/hi", true).should == "<div class=\"some\" id=\"message\"><%= ::Temple::Utils.escape_html_safe((\"Hi, World!\")) %><%\n%></div>"
         end
 
         it "should return source for template" do
@@ -26,6 +30,11 @@ module Deface
 
         it "should return converted source for template containing haml" do
           load_template_source("shared/pirate", false).gsub(/\s/, '').should == "<divid='content'><divclass='left'><p><%=print_information%></p></div><divclass='right'id='<%=@right%>'><%=render:partial=>\"sidebar\"%></div></div>"
+        end
+
+        it "should return converted source for template containing slim" do
+          result = "<divid=\"content\"><%%><divclass=\"left\"><%%><p><%=::Temple::Utils.escape_html_safe((print_information))%><%%></p></div><divclass=\"right\"<%_slim_codeattributes1=@right;case(_slim_codeattributes1);whentrue%>id=\"id\"<%whenfalse,nil;else%>id=\"<%=::Temple::Utils.escape_html_safe((_slim_codeattributes1))%>\"<%end%>><%%><%=::Temple::Utils.escape_html_safe((render:partial=>\"sidebar\"))%><%%></div></div>"
+          load_template_source("shared/public", false).gsub(/\s/, '').should == result
         end
 
         it "should return source for namespaced template" do
@@ -54,7 +63,11 @@ module Deface
         end
 
         it "should return converted and overridden source for partial containing haml" do
-          load_template_source("shared/hello", true).should =="<div class=\"<%= @some %>\" id=\"message\"><%= 'Goodbye World!' %></div>"
+          load_template_source("shared/hello", true).should == "<div class=\"<%= @some %>\" id=\"message\"><%= 'Goodbye World!' %></div>"
+        end
+
+        it "should return converted and overridden source for partial containing slim" do
+          load_template_source("shared/hi", true).should == "<div class=\"some\" id=\"message\"><%= ::Temple::Utils.escape_html_safe((\"Hi, World!\")) %><%\n%></div>"
         end
 
         it "should return overridden source for partial excluding overrides" do
@@ -69,6 +82,11 @@ module Deface
           load_template_source("shared/pirate", false).gsub(/\s/, '').should == "<divid=\"content\"><divclass=\"left\"><h1>Argh!</h1></div><divclass=\"right\"id=\"<%=@right%>\"><%=render:partial=>\"sidebar\"%></div></div>"
         end
 
+        it "should return converted and overridden source for template containing slim" do
+          result = "<divid=\"content\"><%%><divclass=\"left\"><%%><p><%=::Temple::Utils.escape_html_safe((print_information))%><%%></p></div><divclass=\"right\"<%_slim_codeattributes1=@right;case(_slim_codeattributes1);whentrue%>id=\"id\"<%whenfalse,nil;else%>id=\"<%=::Temple::Utils.escape_html_safe((_slim_codeattributes1))%>\"<%end%>><%%><%=::Temple::Utils.escape_html_safe((render:partial=>\"sidebar\"))%><%%></div></div>"
+          load_template_source("shared/public", false).gsub(/\s/, '').should == result
+        end
+
         it "should return source for namespaced template including overrides" do
           load_template_source("admin/posts/index", false).should == "<h1>Argh!</h1>"
         end
@@ -79,8 +97,8 @@ module Deface
 
     describe "element_source" do
       it "should return array of matches elements" do
-        element_source('<div><p class="pirate">Arrgh!</p><img src="/some/image.jpg"></div>', 'p.pirate').should == ["<p class=\"pirate\">Arrgh!</p>\n"]
-        element_source('<div><p class="pirate">Arrgh!</p><p>No pirates here...</p></div>', 'p').should ==  ["<p class=\"pirate\">Arrgh!</p>\n", "<p>No pirates here...</p>"]
+        element_source('<div><p class="pirate">Arrgh!</p><img src="/some/image.jpg"></div>', 'p.pirate').map(&:strip).should == ["<p class=\"pirate\">Arrgh!</p>"]
+        element_source('<div><p class="pirate">Arrgh!</p><p>No pirates here...</p></div>', 'p').map(&:strip).should ==  ["<p class=\"pirate\">Arrgh!</p>", "<p>No pirates here...</p>"]
       end
 
       it "should return empty array for no matches" do

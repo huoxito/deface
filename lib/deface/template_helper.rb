@@ -1,7 +1,7 @@
 module Deface
   module TemplateHelper
 
-    # used to find source for a partial or template using virutal_path
+    # used to find source for a partial or template using virtual_path
     def load_template_source(virtual_path, partial, apply_overrides=true)
       parts = virtual_path.split("/")
       prefix = []
@@ -22,6 +22,8 @@ module Deface
 
       if view.handler.to_s == "Haml::Plugin"
         Deface::HamlConverter.new(view.source).result
+      elsif view.handler.class.to_s == "Slim::RailsTemplate"
+        Slim::ERBConverter.new.call(view.source)
       else
         view.source
       end

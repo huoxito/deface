@@ -11,6 +11,7 @@ require "deface/sources/source"
 require "deface/sources/text"
 require "deface/sources/erb"
 require "deface/sources/haml"
+require "deface/sources/slim"
 require "deface/sources/partial"
 require "deface/sources/template"
 require "deface/sources/copy"
@@ -34,6 +35,7 @@ require "deface/actions/remove_from_attributes"
 require "deface/matchers/element"
 require "deface/matchers/range"
 require "deface/environment"
+require "deface/precompiler"
 require "colorize"
 
 module Deface
@@ -45,5 +47,5 @@ module Deface
   class DefaceError < StandardError; end
 
   class NotSupportedError < DefaceError; end
-  
+
 end
